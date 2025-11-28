@@ -1,15 +1,45 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions, TextInput, Alert, Modal } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 
 const { width, height } = Dimensions.get('window');
 
 export default function Timer() {
-  const [time, setTime] = useState(25 * 60); // Default 25 minutes in seconds
+  const [time, setTime] = useState(25 * 60); // Current time in seconds
+  const [initialTime, setInitialTime] = useState(25 * 60); // Default 25 minutes
+  const [isRunning, setIsRunning] = useState(false);
   const [categories, setCategories] = useState(['Studying', 'Coding', 'Project', 'Reading']);
   const [selectedCategory, setSelectedCategory] = useState('Studying');
   const [newCategory, setNewCategory] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
+  const intervalRef = useRef(null);
+
+  // Countdown logic
+  useEffect(() => {
+    if (isRunning && time > 0) {
+      intervalRef.current = setInterval(() => {
+        setTime((prevTime) => {
+          if (prevTime <= 1) {
+            clearInterval(intervalRef.current);
+            setIsRunning(false);
+            handleTimerComplete();
+            return 0;
+          }
+          return prevTime - 1;
+        });
+      }, 1000);
+    } else {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    }
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, [isRunning, time]);
 
   // Format time to MM:SS
   const formatTime = (seconds) => {
@@ -18,20 +48,32 @@ export default function Timer() {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const handleTimerComplete = () => {
+    Alert.alert(
+      'Timer Complete!',
+      `Great job! You focused for ${Math.floor(initialTime / 60)} minutes on ${selectedCategory}.`,
+      [{ text: 'OK' }]
+    );
+  };
+
   const handleStart = () => {
-    // Timer functionality will be implemented in Phase 4
-    console.log('Start button pressed');
+    if (time > 0) {
+      setIsRunning(true);
+    } else {
+      Alert.alert('Timer Finished', 'Please reset the timer to start a new session.');
+    }
   };
 
   const handlePause = () => {
-    // Timer functionality will be implemented in Phase 4
-    console.log('Pause button pressed');
+    setIsRunning(false);
   };
 
   const handleReset = () => {
-    // Timer functionality will be implemented in Phase 4
-    setTime(25 * 60);
-    console.log('Reset button pressed');
+    setIsRunning(false);
+    setTime(initialTime);
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
   };
 
   const handleAddCategory = () => {
@@ -63,21 +105,56 @@ export default function Timer() {
     }
   };
 
+  const adjustDuration = (minutes) => {
+    if (!isRunning) {
+      const newDuration = initialTime + (minutes * 60);
+      if (newDuration > 0 && newDuration <= 120 * 60) { // Max 120 minutes
+        setInitialTime(newDuration);
+        setTime(newDuration);
+      }
+    }
+  };
+
   return (
     <View style={styles.container}>
       {/* Timer Display */}
-      <View style={styles.timerCircle}>
+      <View style={[styles.timerCircle, isRunning && styles.timerCircleActive]}>
         <Text style={styles.timerText}>{formatTime(time)}</Text>
+        <Text style={styles.timerStatus}>
+          {isRunning ? '⏱️ Running' : time === 0 ? '✓ Complete' : '⏸ Ready'}
+        </Text>
       </View>
+
+      {/* Duration Adjustment */}
+      {!isRunning && (
+        <View style={styles.durationAdjustment}>
+          <TouchableOpacity
+            style={styles.adjustButton}
+            onPress={() => adjustDuration(-5)}
+            disabled={initialTime <= 5 * 60}
+          >
+            <Text style={styles.adjustButtonText}>- 5 min</Text>
+          </TouchableOpacity>
+          <Text style={styles.durationText}>Duration</Text>
+          <TouchableOpacity
+            style={styles.adjustButton}
+            onPress={() => adjustDuration(5)}
+            disabled={initialTime >= 120 * 60}
+          >
+            <Text style={styles.adjustButtonText}>+ 5 min</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {/* Category Selector */}
       <View style={styles.categoryContainer}>
         <Text style={styles.categoryLabel}>Category:</Text>
-        <View style={styles.pickerContainer}>
+        <View style={[styles.pickerContainer, isRunning && styles.pickerDisabled]}>
           <Picker
             selectedValue={selectedCategory}
             onValueChange={handleCategoryChange}
             style={styles.picker}
+            enabled={!isRunning}
           >
             {categories.map((category) => (
               <Picker.Item key={category} label={category} value={category} />
@@ -85,6 +162,9 @@ export default function Timer() {
             <Picker.Item label="➕ Add New Category..." value="__ADD_NEW__" color="#2196F3" />
           </Picker>
         </View>
+        {isRunning && (
+          <Text style={styles.lockedText}>🔒 Category locked during session</Text>
+        )}
       </View>
 
       {/* Add Category Modal */}
@@ -128,13 +208,15 @@ export default function Timer() {
 
       {/* Control Buttons */}
       <View style={styles.buttonContainer}>
-        <TouchableOpacity style={[styles.button, styles.startButton]} onPress={handleStart}>
-          <Text style={styles.buttonText}>Start</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={[styles.button, styles.pauseButton]} onPress={handlePause}>
-          <Text style={styles.buttonText}>Pause</Text>
-        </TouchableOpacity>
+        {!isRunning ? (
+          <TouchableOpacity style={[styles.button, styles.startButton]} onPress={handleStart}>
+            <Text style={styles.buttonText}>Start</Text>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity style={[styles.button, styles.pauseButton]} onPress={handlePause}>
+            <Text style={styles.buttonText}>Pause</Text>
+          </TouchableOpacity>
+        )}
 
         <TouchableOpacity style={[styles.button, styles.resetButton]} onPress={handleReset}>
           <Text style={styles.buttonText}>Reset</Text>
@@ -170,10 +252,44 @@ const styles = StyleSheet.create({
     shadowRadius: 5,
     elevation: 8,
   },
+  timerCircleActive: {
+    borderColor: '#4CAF50',
+  },
   timerText: {
     fontSize: Math.min(width * 0.15, 56), // Responsive font size
     fontWeight: 'bold',
     color: '#333',
+  },
+  timerStatus: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 10,
+    fontWeight: '600',
+  },
+  durationAdjustment: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: height * 0.03,
+    gap: 15,
+  },
+  adjustButton: {
+    backgroundColor: '#2196F3',
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 8,
+    minWidth: 80,
+    alignItems: 'center',
+  },
+  adjustButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  durationText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#666',
   },
   categoryContainer: {
     width: '100%',
@@ -195,9 +311,19 @@ const styles = StyleSheet.create({
     borderColor: '#ddd',
     overflow: 'hidden',
   },
+  pickerDisabled: {
+    backgroundColor: '#f5f5f5',
+    opacity: 0.6,
+  },
   picker: {
     width: '100%',
     height: 50,
+  },
+  lockedText: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 8,
+    fontStyle: 'italic',
   },
   modalOverlay: {
     flex: 1,
