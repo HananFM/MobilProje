@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions, TextInput, Alert, Modal } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions, TextInput, Alert, Modal, AppState } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 
 const { width, height } = Dimensions.get('window');
@@ -8,11 +8,13 @@ export default function Timer() {
   const [time, setTime] = useState(25 * 60); // Current time in seconds
   const [initialTime, setInitialTime] = useState(25 * 60); // Default 25 minutes
   const [isRunning, setIsRunning] = useState(false);
+  const [distractions, setDistractions] = useState(0);
   const [categories, setCategories] = useState(['Studying', 'Coding', 'Project', 'Reading']);
   const [selectedCategory, setSelectedCategory] = useState('Studying');
   const [newCategory, setNewCategory] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const intervalRef = useRef(null);
+  const appState = useRef(AppState.currentState);
 
   // Countdown logic
   useEffect(() => {
@@ -41,6 +43,31 @@ export default function Timer() {
     };
   }, [isRunning, time]);
 
+  // AppState listener for distraction tracking
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', nextAppState => {
+      if (
+        appState.current.match(/active/) &&
+        nextAppState === 'background' &&
+        isRunning
+      ) {
+        // App went to background while timer is running
+        setDistractions((prev) => prev + 1);
+        setIsRunning(false);
+        Alert.alert(
+          'Distraction Detected!',
+          'Timer paused. You left the app during your focus session.',
+          [{ text: 'OK' }]
+        );
+      }
+      appState.current = nextAppState;
+    });
+
+    return () => {
+      subscription?.remove();
+    };
+  }, [isRunning]);
+
   // Format time to MM:SS
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -51,7 +78,7 @@ export default function Timer() {
   const handleTimerComplete = () => {
     Alert.alert(
       'Timer Complete!',
-      `Great job! You focused for ${Math.floor(initialTime / 60)} minutes on ${selectedCategory}.`,
+      `Great job! You focused for ${Math.floor(initialTime / 60)} minutes on ${selectedCategory}.\n\nDistractions: ${distractions}`,
       [{ text: 'OK' }]
     );
   };
@@ -71,6 +98,7 @@ export default function Timer() {
   const handleReset = () => {
     setIsRunning(false);
     setTime(initialTime);
+    setDistractions(0);
     if (intervalRef.current) {
       clearInterval(intervalRef.current);
     }
@@ -123,6 +151,14 @@ export default function Timer() {
         <Text style={styles.timerStatus}>
           {isRunning ? '⏱️ Running' : time === 0 ? '✓ Complete' : '⏸ Ready'}
         </Text>
+      </View>
+
+      {/* Distraction Counter */}
+      <View style={styles.distractionCounter}>
+        <Text style={styles.distractionLabel}>Distractions:</Text>
+        <View style={[styles.distractionBadge, { backgroundColor: distractions > 0 ? '#f44336' : '#4CAF50' }]}>
+          <Text style={styles.distractionCount}>{distractions}</Text>
+        </View>
       </View>
 
       {/* Duration Adjustment */}
@@ -265,6 +301,30 @@ const styles = StyleSheet.create({
     color: '#666',
     marginTop: 10,
     fontWeight: '600',
+  },
+  distractionCounter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: height * 0.03,
+    gap: 10,
+  },
+  distractionLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#666',
+  },
+  distractionBadge: {
+    borderRadius: 20,
+    minWidth: 35,
+    height: 35,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+  },
+  distractionCount: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
   },
   durationAdjustment: {
     flexDirection: 'row',
