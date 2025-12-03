@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions, TextInput, Alert, Modal, AppState } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
+import SessionSummary from './SessionSummary';
+import { addSession, generateSessionId } from '../utils/storage';
 
 const { width, height } = Dimensions.get('window');
 
@@ -13,6 +15,12 @@ export default function Timer() {
   const [selectedCategory, setSelectedCategory] = useState('Studying');
   const [newCategory, setNewCategory] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showSummary, setShowSummary] = useState(false);
+  const [completedSession, setCompletedSession] = useState({
+    duration: 0,
+    category: '',
+    distractions: 0
+  });
   const intervalRef = useRef(null);
   const appState = useRef(AppState.currentState);
 
@@ -75,12 +83,36 @@ export default function Timer() {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const handleTimerComplete = () => {
-    Alert.alert(
-      'Timer Complete!',
-      `Great job! You focused for ${Math.floor(initialTime / 60)} minutes on ${selectedCategory}.\n\nDistractions: ${distractions}`,
-      [{ text: 'OK' }]
-    );
+  const handleTimerComplete = async () => {
+    // Calculate actual focus time (time that was used)
+    const actualDuration = initialTime; // Since timer reached 0, full duration was used
+
+    // Create session object
+    const session = {
+      id: generateSessionId(),
+      duration: actualDuration,
+      category: selectedCategory,
+      distractions: distractions,
+      timestamp: new Date().toISOString(),
+      completed: true
+    };
+
+    // Save session to AsyncStorage
+    const saved = await addSession(session);
+
+    if (!saved) {
+      Alert.alert('Error', 'Failed to save session data');
+    }
+
+    // Set completed session data for summary modal
+    setCompletedSession({
+      duration: actualDuration,
+      category: selectedCategory,
+      distractions: distractions
+    });
+
+    // Show summary modal
+    setShowSummary(true);
   };
 
   const handleStart = () => {
@@ -141,6 +173,12 @@ export default function Timer() {
         setTime(newDuration);
       }
     }
+  };
+
+  const handleCloseSummary = () => {
+    setShowSummary(false);
+    // Reset timer for new session
+    handleReset();
   };
 
   return (
@@ -258,6 +296,13 @@ export default function Timer() {
           <Text style={styles.buttonText}>Reset</Text>
         </TouchableOpacity>
       </View>
+
+      {/* Session Summary Modal */}
+      <SessionSummary
+        visible={showSummary}
+        onClose={handleCloseSummary}
+        sessionData={completedSession}
+      />
     </View>
   );
 }
