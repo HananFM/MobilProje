@@ -20,6 +20,8 @@ import {
   getAverageFocusTime,
   getAverageDistractions,
 } from '../utils/calculations';
+import BarChart from '../components/BarChart';
+import PieChart from '../components/PieChart';
 
 export default function ReportsScreen() {
   const [sessions, setSessions] = useState([]);
@@ -179,6 +181,17 @@ export default function ReportsScreen() {
           />
         </View>
       </View>
+
+      {/* Charts Section */}
+      {stats.totalSessions > 0 && (
+        <>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Visual Insights</Text>
+            <BarChart sessions={sessions} />
+            <PieChart sessions={sessions} />
+          </View>
+        </>
+      )}
 
       {/* Clear Data Button */}
       {stats.totalSessions > 0 && (
