@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run android:*)",
+      "Bash(npx expo start:*)",
+      "Bash(npx tsc:*)",
+      "Bash(node -c:*)",
+      "Bash(dir:*)",
+      "Bash(findstr:*)",
+      "Bash(del \"D:\\4Y_1T\\mobil\\projects\\MobilProject\\components\\TimePicker.js\")",
+      "Bash(npm install:*)",
+      "Bash(npm info:*)",
+      "WebFetch(domain:github.com)"
+    ]
+  }
+}

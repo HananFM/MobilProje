@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { loadSessions, clearSessions } from '../utils/storage';
 import {
   getTotalFocusTime,
@@ -57,10 +58,12 @@ export default function ReportsScreen() {
     setStats(calculatedStats);
   }, []);
 
-  // Load data on component mount
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  // Load data whenever the screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData])
+  );
 
   // Refresh handler
   const onRefresh = useCallback(async () => {

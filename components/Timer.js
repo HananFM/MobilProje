@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions, TextInput, Alert, Modal, AppState } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
+import { TimerPickerModal } from 'react-native-timer-picker';
+import { LinearGradient } from 'expo-linear-gradient';
 import SessionSummary from './SessionSummary';
 import { addSession, generateSessionId } from '../utils/storage';
 
@@ -16,6 +18,7 @@ export default function Timer() {
   const [newCategory, setNewCategory] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
   const [showSummary, setShowSummary] = useState(false);
+  const [showTimerPicker, setShowTimerPicker] = useState(false);
   const [completedSession, setCompletedSession] = useState({
     duration: 0,
     category: '',
@@ -165,13 +168,18 @@ export default function Timer() {
     }
   };
 
-  const adjustDuration = (minutes) => {
-    if (!isRunning) {
-      const newDuration = initialTime + (minutes * 60);
-      if (newDuration > 0 && newDuration <= 120 * 60) { // Max 120 minutes
-        setInitialTime(newDuration);
-        setTime(newDuration);
-      }
+  const handleDurationChange = (duration) => {
+    const { hours = 0, minutes = 0, seconds = 0 } = duration;
+    const totalSeconds = (hours * 3600) + (minutes * 60) + seconds;
+
+    if (totalSeconds > 0 && totalSeconds <= 7200) { // Max 2 hours (120 minutes)
+      setInitialTime(totalSeconds);
+      setTime(totalSeconds);
+      setShowTimerPicker(false);
+    } else if (totalSeconds > 7200) {
+      Alert.alert('Invalid Time', 'Maximum duration is 2 hours');
+    } else if (totalSeconds === 0) {
+      Alert.alert('Invalid Time', 'Please select a duration greater than 0');
     }
   };
 
@@ -199,26 +207,33 @@ export default function Timer() {
         </View>
       </View>
 
-      {/* Duration Adjustment */}
+      {/* Timer Duration Display and Button */}
       {!isRunning && (
-        <View style={styles.durationAdjustment}>
+        <View style={styles.timeInputContainer}>
+          <Text style={styles.timeInputLabel}>Duration:</Text>
           <TouchableOpacity
-            style={styles.adjustButton}
-            onPress={() => adjustDuration(-5)}
-            disabled={initialTime <= 5 * 60}
+            style={styles.durationButton}
+            onPress={() => setShowTimerPicker(true)}
           >
-            <Text style={styles.adjustButtonText}>- 5 min</Text>
-          </TouchableOpacity>
-          <Text style={styles.durationText}>Duration</Text>
-          <TouchableOpacity
-            style={styles.adjustButton}
-            onPress={() => adjustDuration(5)}
-            disabled={initialTime >= 120 * 60}
-          >
-            <Text style={styles.adjustButtonText}>+ 5 min</Text>
+            <Text style={styles.durationButtonText}>{formatTime(initialTime)}</Text>
+            <Text style={styles.durationButtonSubtext}>Tap to change</Text>
           </TouchableOpacity>
         </View>
       )}
+
+      {/* Timer Picker Modal */}
+      <TimerPickerModal
+        visible={showTimerPicker}
+        setIsVisible={setShowTimerPicker}
+        onConfirm={handleDurationChange}
+        onCancel={() => setShowTimerPicker(false)}
+        initialHours={Number(Math.floor(initialTime / 3600))}
+        initialMinutes={Number(Math.floor((initialTime % 3600) / 60))}
+        initialSeconds={Number(initialTime % 60)}
+        hideHours={false}
+        LinearGradient={LinearGradient}
+        modalTitle="Set Timer Duration"
+      />
 
       {/* Category Selector */}
       <View style={styles.categoryContainer}>
@@ -371,30 +386,59 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
-  durationAdjustment: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+  timeInputContainer: {
+    width: '80%',
+    maxWidth: 300,
     marginBottom: height * 0.03,
-    gap: 15,
-  },
-  adjustButton: {
-    backgroundColor: '#2196F3',
-    paddingHorizontal: 15,
-    paddingVertical: 8,
-    borderRadius: 8,
-    minWidth: 80,
     alignItems: 'center',
   },
-  adjustButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  durationText: {
+  timeInputLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#666',
+    color: '#333',
+    marginBottom: 10,
+  },
+  durationButton: {
+    width: '100%',
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#2196F3',
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  durationButtonText: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#2196F3',
+    marginBottom: 5,
+  },
+  durationButtonSubtext: {
+    fontSize: 12,
+    color: '#999',
+    fontStyle: 'italic',
+  },
+  timeInput: {
+    width: '100%',
+    height: 50,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#2196F3',
+    paddingHorizontal: 15,
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+    textAlign: 'center',
   },
   categoryContainer: {
     width: '100%',
